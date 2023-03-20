@@ -12,6 +12,8 @@ from tkinter import *
 from PIL import Image, ImageTk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+import openpyxl
+
 
 
 
@@ -21,11 +23,12 @@ class Scribble:
 		self.master = tkinter.Tk()
 		self.master.protocol("WM_DELETE_WINDOW", self.delete_window)
 		#このプログラムの名前を取得
-		self.programTitle = os.path.abspath(__file__)[:-3]
+		self.programTitle = os.path.splitext(os.path.split(os.path.abspath(__file__))[1])[0]
+		self.master.title(self.programTitle)
 		#このプログラムで取得するデータのフォルダを作成
 		os.makedirs(self.programTitle, exist_ok = True)
 		self.fileOpen()
-		self.window = self.create_window();
+		self.window = self.create_window()
 		self.default_fontfamily = "Yu Gothic UI"
 		self.default_fontsize = 10
 		self.__create_menu()
@@ -55,7 +58,7 @@ class Scribble:
 		self.master.focus_set()
 
 
-		return self.master;
+		return self.master
 
 	def delete_window(self):
 		self.master.destroy()
@@ -123,32 +126,36 @@ class Scribble:
 		self.graphFrame = ttk.Frame(self.root, width = widths*0.6, height = heights*1.2)
 		self.graphFrame.place(x = widths*1.2, y = 0)
 		
-		self.roundFrame = ttk.Frame(self.graphFrame, width = widths*0.6, height= heights*0.4)
+		self.roundFrame = ttk.Frame(self.graphFrame, width = widths*0.6, height= heights*0.35)
 		self.roundFrame.pack(side = TOP)
 		print(widthsInch*0.6, heightsInch*0.4)
-		self.roundFig = plt.figure(figsize=(widthsInch*0.6, heightsInch*0.4))
+		self.roundFig = plt.figure(figsize=(widthsInch*1, heightsInch*0.95))
 		self.roundGraph = self.roundFig.add_subplot(111)
 		self.roundFigCanvas = FigureCanvasTkAgg(self.roundFig, master=self.roundFrame)  # Generate canvas instance, Embedding fig in root
 		self.roundFigCanvas.get_tk_widget().pack(side = LEFT,padx = 0)
 		self.roundFigCanvas.get_tk_widget().bind('<ButtonPress-1>', self.graphView2)
 		
-		self.moveFrame = ttk.Frame(self.graphFrame, width = widths*0.6, height= heights*0.8)
+		self.moveFrame = ttk.Frame(self.graphFrame, width = widths*0.6, height= heights*0.75)
 		self.moveFrame.pack(side = TOP)
-		self.moveFig = plt.figure(figsize=(widthsInch*0.6, heightsInch*0.8))
+		self.moveFig = plt.figure(figsize=(widthsInch*1, heightsInch*0.95))
 		self.moveGraph = self.moveFig.add_subplot(111)
 		self.moveFigCanvas = FigureCanvasTkAgg(self.moveFig, master=self.moveFrame)  # Generate canvas instance, Embedding fig in root
 		self.moveFigCanvas.get_tk_widget().pack(side = LEFT,padx = 0)
 		self.graphview = 0
-		self.moveFigCanvas.get_tk_widget().bind('<ButtonPress-1>', self.graphView2)
+		# self.moveFigCanvas.get_tk_widget().bind('<ButtonPress-1>', self.graphView2)
 		
 	def makeDataFrame(self):
 		h, w = self.videoShape
-		self.dataFrame = ttk.Frame(self.root, width = w*1.2, height = h*0.6)
+		dF_h = int(h*0.6)
+		dF_w = int(w*1.2)
+		self.dataFrame = ttk.Frame(self.root, width = dF_w, height = dF_h)
 		self.dataFrame.place(x = 0, y = h*1.2)
-		fonts=("MSゴシック", "30")
-		texts = ['時刻', '中心座標', 'サイズ', '周囲長', '円形度']
-		labelPlaces = [[0, 0], [0, w*1.2*(1/3)], [h*0.6*0.5, w*1.2*(0/3)], [h*0.6*0.5, w*1.2*(1/3)], [h*0.6*0.5, w*1.2*(2/3)]]
-		textPlaces = [[0, 90], [0, w*1.2*(1/3)+150], [h*0.6*0.5, w*1.2*(0/3)+120], [h*0.6*0.5, (w*1.2*(1/3)+120)], [(h*0.6*0.5), (w*1.2*(2/3)+120)]]
+
+		font_size = int(dF_w*0.025)#40文字が並ぶことを想定
+		fonts=("MSゴシック", str(font_size))
+		texts = ['時刻 :', '中心座標 :', 'サイズ :', '周囲長 :', '円形度 :']
+		labelPlaces = [[0, 0], [0, font_size*9], [dF_h*0.5, 0], [dF_h*0.5, font_size*10], [dF_h*0.5, font_size*22]]
+		textPlaces = [[0, font_size*4], [0, font_size*16], [dF_h*0.5, font_size*5], [dF_h*0.5, font_size*16], [dF_h*0.5, font_size*29]]
 		self.label = []
 		self.label_data = []
 		for i in range(len(texts)):
@@ -200,10 +207,23 @@ class Scribble:
 
 	def fileChange(self):
 		self.fileOpen
-		self.window = self.create_window();
+		self.window = self.create_window()
 		
 		
 	def scale(self, movieTime):
+		movieTime = int(float(movieTime))
+		h, w = self.videoShape
+		self.sc_val2 = movieTime
+		digit = len(str(self.videoLength))
+		img_path = self.videoImage_path + '/image_' +str(int(movieTime)).zfill(digit)+'.png'
+		frame = cv2.imread(img_path)
+		img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+		image_w = copy.deepcopy(frame)
+		image_w = np.array(image_w, dtype = 'u1')
+		self.Apdate(image_w)
+
+
+	def get_cell(self, movieTime):
 		movieTime = int(float(movieTime))
 		h, w = self.videoShape
 		self.sc_val2 = movieTime
@@ -226,12 +246,7 @@ class Scribble:
 			Y2 = int(min(y2+5, w-1))
 			
 			imgTarget = copy.deepcopy(img_gray[Y1:Y2, X1:X2])
-			imgPickup = copy.deepcopy(image_w[Y1:Y2, X1:X2])
-			print("--imgSegmen--")
-			# imgSegmen, maskSegmen = eval_ex.evalimage_ex(self.net, imgPickup)
-			# cv2.imwrite(self.cellEtc_path+ '/image_' +str(int(movieTime)).zfill(digit)+'_etc1.png', imgSegmen)
-			# if(len(maskSegmen)):
-			# 	cv2.imwrite(self.cellEtc_path+ '/image_' +str(int(movieTime)).zfill(digit)+'_etc2.png', np.array(maskSegmen.cpu().detach(), dtype = "u1"))
+			
 			h, w = np.shape(imgTarget)
 			
 			checkMap = np.zeros((h, w))
@@ -454,35 +469,6 @@ class Scribble:
 			image= cv2.resize(image, dsize =None, fx=fx, fy=fx)
 			self.cellFrameImage = self.makeTkImage(image, self.master)
 			self.cellFrameCanvas.create_image(0.3*self.videoShape[1], 0.3*self.videoShape[0], image = self.cellFrameImage)
-			#chanVace
-			'''
-			img = copy.deepcopy(imgTarget)
-			img = np.array(img, dtype = 'u1')
-			h, w = np.shape(img)
-			mask = np.zeros(img.shape)
-			mask[int(h*0.1):int(h*0.9), int(w*0.1):int(w*0.9)] = 1
-			seg, phi, its = chanvace2.chanvese(img, mask, max_its=1000, display=False, alpha=1.0)
-			for i in range(h):
-				for j in range(w):
-					if(i>0 and phi[i-1][j]*phi[i][j]<0):
-						if(phi[i][j]<0):
-							print('True')
-							image_w[i+y1][j+x1] = [0, 255, 0]
-					if(j>0 and phi[i][j-1]*phi[i][j]<0):
-						if(phi[i][j]<0):
-							print('True')
-							image_w[i+y1][j+x1] = [0, 255, 0]
-					if(i<h-1 and phi[i+1][j]*phi[i][j]<0):
-						if(phi[i][j]<0):
-							print('True')
-							image_w[i+y1][j+x1] = [0, 255, 0]
-							
-					if(j<w-1 and phi[i][j+1]*phi[i][j]<0):
-						if(phi[i][j]<0):
-							print('True')
-							image_w[i+y1][j+x1] = [0, 255, 0]
-			phi = np.array(phi, dtype = 'u1')
-			'''
 			#cv2.imwrite(self.cellImage_path+ '/image_' +str(int(movieTime)).zfill(digit)+'-2.png', image_w)
 			self.Apdate2(image_w)
 					
@@ -513,14 +499,15 @@ class Scribble:
 		x1 = max(min(self.cellRange_list[:, 1])-25, 0)
 		y2 = min(max(self.cellRange_list[:, 0])+25, h)
 		x2 = min(max(self.cellRange_list[:, 1])+25, w)
-		'''
-		print('y1', y1)
-		print('x1', x1)
-		print('y2', y2)
-		print('x2', x2)
-		'''
-		self.moveGraph.plot(x1, y1)
-		self.moveGraph.plot(x2, y2)
+
+		
+		# print('y1', y1)
+		# print('x1', x1)
+		# print('y2', y2)
+		# print('x2', x2)
+		
+		self.moveGraph.plot(y1, x1)
+		self.moveGraph.plot(y2, x2)
 		self.moveGraph.plot(self.cellRange_list[:, 0], self.cellRange_list[:, 1])
 		self.moveGraph.invert_yaxis()
 		self.moveFigCanvas.draw()
@@ -573,7 +560,7 @@ class Scribble:
 				os.makedirs(self.cellContours_path_1, exist_ok = True)
 				os.makedirs(self.cellContours_path_2, exist_ok = True)
 				os.makedirs(self.cellEtc_path, exist_ok = True)
-				self.scale(self.sc_val2)
+				self.get_cell(self.sc_val2)
 				self.onClicked2()
 				#self.root.after(10, self.onClicked2)
 				
@@ -589,7 +576,8 @@ class Scribble:
 			self.cellRange[1] = int(self.targetArea2[1])
 			self.cellRange[2] = int(self.targetArea2[2] - self.targetArea2[0])
 			self.cellRange[3] = int(self.targetArea2[3] - self.targetArea2[1])
-			self.scale(self.sc_val2)
+			self.sc.set(self.sc_val2)
+			self.get_cell(self.sc_val2)
 			self.root.after(10, self.onClicked2)
 			
 	def cellSave(self):
@@ -799,7 +787,8 @@ class Scribble:
 				x = w2*(zzzz*i)+0.2*w
 				print(x, w2, zzzz)
 				self.figCanvasEx1.create_line(x, h, x, h+font_size*0.25)
-				self.figCanvasEx1.create_text(x, h+font_size*0.75,  text = str(zzzz*i), font = fonts, anchor = 'n')
+				font_num = fonts[0], str(int(fonts[1])//len(str(zzzz*i)))
+				self.figCanvasEx1.create_text(x, h+font_size*0.75,  text = str(zzzz*i), font = font_num, anchor = 'n')
 				i += 1
 
 		
@@ -822,16 +811,8 @@ class Scribble:
 			self.graphView1()
 		else:
 			h, w = self.videoShape
-			self.movieCanvas = tkinter.Canvas(self.mainFrame, width = w, height = h)
-			self.movieCanvas.bind('<ButtonPress-1>', self.onClicked)
-			self.movieCanvas.bind('<ButtonPress-2>', self.cellSave)
-			self.movieCanvas.bind('<Motion>', self.onMotion)
-			self.master.bind('<KeyPress>', self.keyPress)
-			self.movieCanvas.place(x = w*0.1, y = h*0.1)
-			self.movieCanvas.create_image(0, 0, image=self.movie_image, anchor='nw')
-			self.rect = self.movieCanvas.create_rectangle(self.targetArea2[1], self.targetArea2[0], self.targetArea2[3], self.targetArea2[2], tag = 'rect')
-			
 			self.graphview -= 2
+			self.figCanvasEx1.place_forget()
 		self.graphview += 1
 		
 	def graphOnImage(self, event):
